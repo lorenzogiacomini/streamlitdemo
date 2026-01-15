@@ -97,13 +97,19 @@ def call_anthropic(messages, api_key, model):
                 })
 
         # Chiamata streaming
-        with client.messages.stream(
-            model=model,
-            max_tokens=4096,
-            system=system_message if system_message else None,
-            messages=anthropic_messages,
-            temperature=0.7
-        ) as stream:
+        # Costruisci parametri dinamicamente
+        stream_params = {
+            "model": model,
+            "max_tokens": 4096,
+            "messages": anthropic_messages,
+            "temperature": 0.7
+        }
+
+        # Aggiungi system solo se presente
+        if system_message:
+            stream_params["system"] = system_message
+
+        with client.messages.stream(**stream_params) as stream:
             for text in stream.text_stream:
                 yield text
 
