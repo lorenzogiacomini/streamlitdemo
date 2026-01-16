@@ -43,21 +43,22 @@ def save_auth_cookie(username):
 
 def check_auth_cookie():
     """Verifica se esiste un cookie di autenticazione valido"""
-    try:
-        # Leggi i cookies - può richiedere qualche tentativo
-        cm = get_cookie_manager()
-        cookies = cm.get_all()
+    cm = get_cookie_manager()
+    cookies = cm.get_all()
 
-        if cookies and "auth_user" in cookies and "auth_token" in cookies:
-            username = cookies["auth_user"]
-            token = cookies["auth_token"]
+    # Il CookieManager restituisce None quando non è ancora pronto
+    # Restituisce {} quando è pronto ma non ci sono cookies
+    if cookies is None:
+        return None, None
 
-            # Verifica che l'utente esista ancora
-            users = st.secrets.get("users", {})
-            if username in users:
-                return username, token
-    except:
-        pass
+    if cookies and "auth_user" in cookies and "auth_token" in cookies:
+        username = cookies["auth_user"]
+        token = cookies["auth_token"]
+
+        # Verifica che l'utente esista ancora
+        users = st.secrets.get("users", {})
+        if username in users:
+            return username, token
 
     return None, None
 
@@ -92,12 +93,24 @@ def check_password():
 
     # Prima controlla se c'è un cookie valido
     if not st.session_state.get("authenticated", False):
+        # Controlla se i cookies sono pronti
+        cm = get_cookie_manager()
+        cookies = cm.get_all()
+
+        # Se i cookies non sono ancora stati caricati (prima volta), aspetta
+        if cookies is None and "cookies_ready" not in st.session_state:
+            st.session_state["cookies_ready"] = False
+            # Mostra messaggio di caricamento e forza rerun per caricare i cookies
+            with st.spinner("Caricamento..."):
+                st.rerun()
+
         username, token = check_auth_cookie()
         if username and token:
             # Cookie valido trovato - autentica automaticamente
             st.session_state["authenticated"] = True
             st.session_state["current_user"] = username
             st.session_state["auth_token"] = token
+            st.rerun()
 
     # Se già autenticato, ritorna True
     if st.session_state.get("authenticated", False):
