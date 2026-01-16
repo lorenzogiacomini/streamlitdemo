@@ -14,7 +14,6 @@ st.set_page_config(
 )
 
 # Inizializza authenticator
-@st.cache_resource
 def get_authenticator():
     """Crea e restituisce l'authenticator con credenziali da secrets"""
     # Ottieni credenziali da secrets
