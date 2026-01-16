@@ -15,13 +15,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Cookie Manager
-@st.cache_resource
-def get_cookie_manager():
-    """Inizializza e ritorna il cookie manager"""
-    return stx.CookieManager()
-
-cookie_manager = get_cookie_manager()
+# Cookie Manager - inizializzato direttamente (non può essere cached)
+cookie_manager = stx.CookieManager()
 
 # Funzioni helper per cookie
 def generate_session_token(username):
