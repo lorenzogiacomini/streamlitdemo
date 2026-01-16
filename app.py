@@ -2,7 +2,10 @@ import streamlit as st
 import openai
 from anthropic import Anthropic
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+import extra_streamlit_components as stx
+import hashlib
+import secrets
 
 # Configurazione pagina
 st.set_page_config(
@@ -11,6 +14,57 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Cookie Manager
+@st.cache_resource
+def get_cookie_manager():
+    """Inizializza e ritorna il cookie manager"""
+    return stx.CookieManager()
+
+cookie_manager = get_cookie_manager()
+
+# Funzioni helper per cookie
+def generate_session_token(username):
+    """Genera un token di sessione sicuro"""
+    # Crea un token unico basato su username + timestamp + random
+    data = f"{username}:{datetime.now().isoformat()}:{secrets.token_hex(16)}"
+    return hashlib.sha256(data.encode()).hexdigest()
+
+def save_auth_cookie(username):
+    """Salva il cookie di autenticazione"""
+    token = generate_session_token(username)
+    expiry = datetime.now() + timedelta(days=7)  # Cookie valido 7 giorni
+
+    # Salva username e token
+    cookie_manager.set("auth_user", username, expires_at=expiry)
+    cookie_manager.set("auth_token", token, expires_at=expiry)
+
+    # Salva token anche in session_state per validazione
+    st.session_state["auth_token"] = token
+
+def check_auth_cookie():
+    """Verifica se esiste un cookie di autenticazione valido"""
+    try:
+        # Leggi i cookies - può richiedere qualche tentativo
+        cookies = cookie_manager.get_all()
+
+        if cookies and "auth_user" in cookies and "auth_token" in cookies:
+            username = cookies["auth_user"]
+            token = cookies["auth_token"]
+
+            # Verifica che l'utente esista ancora
+            users = st.secrets.get("users", {})
+            if username in users:
+                return username, token
+    except:
+        pass
+
+    return None, None
+
+def clear_auth_cookie():
+    """Cancella i cookie di autenticazione"""
+    cookie_manager.delete("auth_user")
+    cookie_manager.delete("auth_token")
 
 # Funzione di autenticazione
 def check_password():
@@ -28,9 +82,21 @@ def check_password():
             st.session_state["authenticated"] = True
             st.session_state["current_user"] = username
             del st.session_state["password"]  # Non mantenere la password in memoria
+
+            # Salva cookie per mantenere la sessione
+            save_auth_cookie(username)
         else:
             st.session_state["authenticated"] = False
             st.error("❌ Username o password non validi")
+
+    # Prima controlla se c'è un cookie valido
+    if not st.session_state.get("authenticated", False):
+        username, token = check_auth_cookie()
+        if username and token:
+            # Cookie valido trovato - autentica automaticamente
+            st.session_state["authenticated"] = True
+            st.session_state["current_user"] = username
+            st.session_state["auth_token"] = token
 
     # Se già autenticato, ritorna True
     if st.session_state.get("authenticated", False):
@@ -132,6 +198,9 @@ def main():
         st.title("💬 LLM Chat")
     with col2:
         if st.button("🚪 Logout", use_container_width=True):
+            # Cancella i cookie di autenticazione
+            clear_auth_cookie()
+            # Cancella session state
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.rerun()
