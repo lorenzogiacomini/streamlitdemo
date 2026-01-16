@@ -15,10 +15,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Cookie Manager - inizializzato direttamente (non può essere cached)
-cookie_manager = stx.CookieManager()
-
 # Funzioni helper per cookie
+def get_cookie_manager():
+    """Restituisce l'istanza del CookieManager, creandola solo se necessario"""
+    if "cookie_manager" not in st.session_state:
+        st.session_state.cookie_manager = stx.CookieManager()
+    return st.session_state.cookie_manager
+
 def generate_session_token(username):
     """Genera un token di sessione sicuro"""
     # Crea un token unico basato su username + timestamp + random
@@ -31,8 +34,9 @@ def save_auth_cookie(username):
     expiry = datetime.now() + timedelta(days=7)  # Cookie valido 7 giorni
 
     # Salva username e token
-    cookie_manager.set("auth_user", username, expires_at=expiry)
-    cookie_manager.set("auth_token", token, expires_at=expiry)
+    cm = get_cookie_manager()
+    cm.set("auth_user", username, expires_at=expiry)
+    cm.set("auth_token", token, expires_at=expiry)
 
     # Salva token anche in session_state per validazione
     st.session_state["auth_token"] = token
@@ -41,7 +45,8 @@ def check_auth_cookie():
     """Verifica se esiste un cookie di autenticazione valido"""
     try:
         # Leggi i cookies - può richiedere qualche tentativo
-        cookies = cookie_manager.get_all()
+        cm = get_cookie_manager()
+        cookies = cm.get_all()
 
         if cookies and "auth_user" in cookies and "auth_token" in cookies:
             username = cookies["auth_user"]
@@ -58,8 +63,9 @@ def check_auth_cookie():
 
 def clear_auth_cookie():
     """Cancella i cookie di autenticazione"""
-    cookie_manager.delete("auth_user")
-    cookie_manager.delete("auth_token")
+    cm = get_cookie_manager()
+    cm.delete("auth_user")
+    cm.delete("auth_token")
 
 # Funzione di autenticazione
 def check_password():
