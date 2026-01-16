@@ -4,6 +4,7 @@ from anthropic import Anthropic
 import os
 from datetime import datetime
 import streamlit_authenticator as stauth
+import bcrypt
 
 # Configurazione pagina
 st.set_page_config(
@@ -26,8 +27,8 @@ def get_authenticator():
     }
 
     for username, password in users.items():
-        # Usa la password direttamente hashata
-        hashed_password = stauth.Hasher([password]).generate()[0]
+        # Genera hash della password usando bcrypt direttamente
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         credentials["usernames"][username] = {
             "name": username,
             "password": hashed_password
