@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import extra_streamlit_components as stx
 import hashlib
 import secrets
+import json
 
 # Configurazione pagina
 st.set_page_config(
@@ -33,10 +34,14 @@ def save_auth_cookie(username):
     token = generate_session_token(username)
     expiry = datetime.now() + timedelta(days=7)  # Cookie valido 7 giorni
 
-    # Salva username e token
+    # Combina username e token in un singolo cookie JSON
+    auth_data = json.dumps({
+        "username": username,
+        "token": token
+    })
+
     cm = get_cookie_manager()
-    cm.set("auth_user", username, expires_at=expiry)
-    cm.set("auth_token", token, expires_at=expiry)
+    cm.set("auth_session", auth_data, expires_at=expiry)
 
     # Salva token anche in session_state per validazione
     st.session_state["auth_token"] = token
@@ -51,22 +56,27 @@ def check_auth_cookie():
     if cookies is None:
         return None, None
 
-    if cookies and "auth_user" in cookies and "auth_token" in cookies:
-        username = cookies["auth_user"]
-        token = cookies["auth_token"]
+    if cookies and "auth_session" in cookies:
+        try:
+            # Decodifica il cookie JSON
+            auth_data = json.loads(cookies["auth_session"])
+            username = auth_data.get("username")
+            token = auth_data.get("token")
 
-        # Verifica che l'utente esista ancora
-        users = st.secrets.get("users", {})
-        if username in users:
-            return username, token
+            if username and token:
+                # Verifica che l'utente esista ancora
+                users = st.secrets.get("users", {})
+                if username in users:
+                    return username, token
+        except (json.JSONDecodeError, KeyError):
+            pass
 
     return None, None
 
 def clear_auth_cookie():
     """Cancella i cookie di autenticazione"""
     cm = get_cookie_manager()
-    cm.delete("auth_user")
-    cm.delete("auth_token")
+    cm.delete("auth_session")
 
 # Funzione di autenticazione
 def check_password():
